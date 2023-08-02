@@ -1,21 +1,34 @@
 {
   "name": "koishi-plugin-pinyin",
-  "description": "",
-  "version": "0.0.1",
+  "description": "为 Koishi 提供拼音服务",
+  "version": "0.1.2",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
-  "license": "MIT",
-  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahdg6/koishi-plugin-pinyin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ahdg6/koishi-plugin-pinyin/issues"
+  },
+  "license": "AGPL-3.0-or-later",
   "keywords": [
-    "chatbot",
+    "pinyin",
     "koishi",
     "plugin"
   ],
   "peerDependencies": {
-    "koishi": "^4.14.0"
+    "koishi": "^4.13.6"
+  },
+  "dependencies": {
+    "nodejs-file-downloader": "^4.12.1",
+    "tar": "^6.1.15"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0"
   }
 }
