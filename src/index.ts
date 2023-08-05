@@ -9,7 +9,7 @@ const logger = new Logger(name);
 
 declare module 'koishi' {
   interface Context {
-    pinyin: pinyin;
+    pinyin: Pinyin;
   }
 }
 
@@ -32,7 +32,7 @@ export const enum PINYIN_STYLE {
   FirstLetter = 4,
 }
 
-export class pinyin extends Service {
+export class Pinyin extends Service {
   pinyin: (
     input: string | Buffer,
     opt?: PinyinConvertOptions | undefined | null,
@@ -46,7 +46,7 @@ export class pinyin extends Service {
   compare: (inputA: string, inputB: string) => number;
   constructor(
     ctx: Context,
-    public config: pinyin.Config,
+    public config: Pinyin.Config,
   ) {
     super(ctx, 'pinyin');
 
@@ -95,7 +95,7 @@ export class pinyin extends Service {
       nativeBinding = await getNativeBinding(nodeDir);
     } catch (e) {
       if (e instanceof UnsupportedError) {
-        logger.error('pinyin 目前不支持你的系统');
+        logger.error('Pinyin 目前不支持你的系统');
       }
       if (e instanceof DownloadError) {
         logger.error('下载二进制文件遇到错误，请查看日志获取更详细信息');
@@ -107,7 +107,7 @@ export class pinyin extends Service {
       asyncPinyin: this.asyncPinyin,
       compare: this.compare,
     } = nativeBinding);
-    logger.success('pinyin 服务启动成功');
+    logger.success('Pinyin 服务启动成功');
   }
 }
 
@@ -136,90 +136,43 @@ async function getNativeBinding(nodeDir) {
   const { platform, arch } = process;
   let nativeBinding;
   let nodeName;
-  switch (platform) {
-    case 'android':
-      switch (arch) {
-        case 'arm64':
-          nodeName = 'pinyin.android-arm64';
-          break;
-        case 'arm':
-          nodeName = 'pinyin.android-arm-eabi';
-          break;
-        default:
-          throw new UnsupportedError(
-            `Unsupported architecture on Android ${arch}`,
-          );
-      }
-      break;
-    case 'win32':
-      switch (arch) {
-        case 'x64':
-          nodeName = 'pinyin.win32-x64-msvc';
-          break;
-        case 'ia32':
-          nodeName = 'pinyin.win32-ia32-msvc';
-          break;
-        case 'arm64':
-          nodeName = 'pinyin.win32-arm64-msvc';
-          break;
-        default:
-          throw new UnsupportedError(
-            `Unsupported architecture on Windows: ${arch}`,
-          );
-      }
-      break;
-    case 'darwin':
-      switch (arch) {
-        case 'x64':
-          nodeName = 'pinyin.darwin-x64';
-          break;
-        case 'arm64':
-          nodeName = 'pinyin.darwin-arm64';
-          break;
-        default:
-          throw new UnsupportedError(
-            `Unsupported architecture on macOS: ${arch}`,
-          );
-      }
-      break;
-    case 'freebsd':
-      if (arch !== 'x64') {
-        throw new UnsupportedError(
-          `Unsupported architecture on FreeBSD: ${arch}`,
-        );
-      }
-      nodeName = 'pinyin.freebsd-x64';
-      break;
-    case 'linux':
-      switch (arch) {
-        case 'x64':
-          if (isMusl()) {
-            nodeName = 'pinyin.linux-x64-musl';
-          } else {
-            nodeName = 'pinyin.linux-x64-gnu';
-          }
-          break;
-        case 'arm64':
-          if (isMusl()) {
-            nodeName = 'pinyin.linux-arm64-musl';
-          } else {
-            nodeName = 'pinyin.linux-arm64-gnu';
-          }
-          break;
-        case 'arm':
-          nodeName = 'pinyin.linux-arm-gnueabihf';
-          break;
-        default:
-          throw new UnsupportedError(
-            `Unsupported architecture on Linux: ${arch}`,
-          );
-      }
-      break;
-    default:
-      throw new UnsupportedError(
-        `Unsupported OS: ${platform}, architecture: ${arch}`,
-      );
+
+  const platformArchMap = {
+    android: {
+      arm64: 'pinyin.android-arm64',
+      arm: 'pinyin.android-arm-eabi',
+    },
+    win32: {
+      x64: 'pinyin.win32-x64-msvc',
+      ia32: 'pinyin.win32-ia32-msvc',
+      arm64: 'pinyin.win32-arm64-msvc',
+    },
+    darwin: {
+      x64: 'pinyin.darwin-x64',
+      arm64: 'pinyin.darwin-arm64',
+    },
+    freebsd: {
+      x64: 'pinyin.freebsd-x64',
+    },
+    linux: {
+      x64: isMusl() ? 'pinyin.linux-x64-musl' : 'pinyin.linux-x64-gnu',
+      arm64: isMusl() ? 'pinyin.linux-arm64-musl' : 'pinyin.linux-arm64-gnu',
+      arm: 'pinyin.linux-arm-gnueabihf',
+    },
+  };
+  if (!platformArchMap[platform]) {
+    throw new UnsupportedError(
+      `Unsupported OS: ${platform}, architecture: ${arch}`,
+    );
   }
+  if (!platformArchMap[platform][arch]) {
+    throw new UnsupportedError(
+      `Unsupported architecture on ${platform}: ${arch}`,
+    );
+  }
+
+  nodeName = platformArchMap[platform][arch];
+
   const nodeFile = nodeName + '.node';
   const nodePath = path.join(nodeDir, 'package', nodeFile);
   const localFileExisted = fs.existsSync(nodePath);
@@ -236,7 +189,7 @@ async function getNativeBinding(nodeDir) {
   return nativeBinding;
 }
 
-export namespace pinyin {
+export namespace Pinyin {
   export interface Config {
     nodeBinaryPath: string;
   }
@@ -250,8 +203,8 @@ export namespace pinyin {
   });
 }
 
-Context.service('pinyin', pinyin);
-export default pinyin;
+Context.service('pinyin', Pinyin);
+export default Pinyin;
 class UnsupportedError extends Error {
   constructor(message: string) {
     super(message);
