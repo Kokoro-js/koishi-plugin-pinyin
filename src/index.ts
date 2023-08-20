@@ -92,7 +92,7 @@ export class Pinyin extends Service {
     await mkdir(nodeDir, { recursive: true });
     let nativeBinding = null;
     try {
-      nativeBinding = await getNativeBinding(nodeDir);
+      nativeBinding = await this.getNativeBinding(nodeDir);
     } catch (e) {
       if (e instanceof UnsupportedError) {
         logger.error('Pinyin 目前不支持你的系统');
@@ -108,6 +108,64 @@ export class Pinyin extends Service {
       compare: this.compare,
     } = nativeBinding);
     logger.success('Pinyin 服务启动成功');
+  }
+
+  private async getNativeBinding(nodeDir) {
+    const { platform, arch } = process;
+    let nativeBinding;
+    let nodeName;
+
+    const platformArchMap = {
+      android: {
+        arm64: 'pinyin.android-arm64',
+        arm: 'pinyin.android-arm-eabi',
+      },
+      win32: {
+        x64: 'pinyin.win32-x64-msvc',
+        ia32: 'pinyin.win32-ia32-msvc',
+        arm64: 'pinyin.win32-arm64-msvc',
+      },
+      darwin: {
+        x64: 'pinyin.darwin-x64',
+        arm64: 'pinyin.darwin-arm64',
+      },
+      freebsd: {
+        x64: 'pinyin.freebsd-x64',
+      },
+      linux: {
+        x64: isMusl() ? 'pinyin.linux-x64-musl' : 'pinyin.linux-x64-gnu',
+        arm64: isMusl() ? 'pinyin.linux-arm64-musl' : 'pinyin.linux-arm64-gnu',
+        arm: 'pinyin.linux-arm-gnueabihf',
+      },
+    };
+    if (!platformArchMap[platform]) {
+      throw new UnsupportedError(
+        `Unsupported OS: ${platform}, architecture: ${arch}`,
+      );
+    }
+    if (!platformArchMap[platform][arch]) {
+      throw new UnsupportedError(
+        `Unsupported architecture on ${platform}: ${arch}`,
+      );
+    }
+
+    nodeName = platformArchMap[platform][arch];
+
+    const nodeFile = nodeName + '.node';
+    const nodePath = path.join(nodeDir, 'package', nodeFile);
+    const localFileExisted = fs.existsSync(nodePath);
+    try {
+      if (!localFileExisted)
+        await handleFile(nodeDir, nodeName, logger, this.ctx.http);
+      nativeBinding = require(nodePath);
+    } catch (e) {
+      logger.error('在处理二进制文件时遇到了错误', e);
+      if (e instanceof DownloadError) {
+        throw e;
+      }
+      throw new Error(`Failed to use ${nodePath} on ${platform}-${arch}`);
+    }
+    return nativeBinding;
   }
 }
 
@@ -130,63 +188,6 @@ function isMusl() {
     const glibcVersionRuntime = report.header?.glibcVersionRuntime;
     return !glibcVersionRuntime;
   }
-}
-
-async function getNativeBinding(nodeDir) {
-  const { platform, arch } = process;
-  let nativeBinding;
-  let nodeName;
-
-  const platformArchMap = {
-    android: {
-      arm64: 'pinyin.android-arm64',
-      arm: 'pinyin.android-arm-eabi',
-    },
-    win32: {
-      x64: 'pinyin.win32-x64-msvc',
-      ia32: 'pinyin.win32-ia32-msvc',
-      arm64: 'pinyin.win32-arm64-msvc',
-    },
-    darwin: {
-      x64: 'pinyin.darwin-x64',
-      arm64: 'pinyin.darwin-arm64',
-    },
-    freebsd: {
-      x64: 'pinyin.freebsd-x64',
-    },
-    linux: {
-      x64: isMusl() ? 'pinyin.linux-x64-musl' : 'pinyin.linux-x64-gnu',
-      arm64: isMusl() ? 'pinyin.linux-arm64-musl' : 'pinyin.linux-arm64-gnu',
-      arm: 'pinyin.linux-arm-gnueabihf',
-    },
-  };
-  if (!platformArchMap[platform]) {
-    throw new UnsupportedError(
-      `Unsupported OS: ${platform}, architecture: ${arch}`,
-    );
-  }
-  if (!platformArchMap[platform][arch]) {
-    throw new UnsupportedError(
-      `Unsupported architecture on ${platform}: ${arch}`,
-    );
-  }
-
-  nodeName = platformArchMap[platform][arch];
-
-  const nodeFile = nodeName + '.node';
-  const nodePath = path.join(nodeDir, 'package', nodeFile);
-  const localFileExisted = fs.existsSync(nodePath);
-  try {
-    if (!localFileExisted) await handleFile(nodeDir, nodeName, logger);
-    nativeBinding = require(nodePath);
-  } catch (e) {
-    logger.error('在处理二进制文件时遇到了错误', e);
-    if (e instanceof DownloadError) {
-      throw e;
-    }
-    throw new Error(`Failed to use ${nodePath} on ${platform}-${arch}`);
-  }
-  return nativeBinding;
 }
 
 export namespace Pinyin {
